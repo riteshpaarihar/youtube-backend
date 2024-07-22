@@ -7,7 +7,7 @@ const registerUser = asyncHandler(async (req, res) => {
   // get user information from frontend
 
   const { fullName, email, password, username } = req.body;
-  console.log(fullName, email, password, username);
+  //console.log(fullName, email, password, username);
 
   // vailidation  - not empty
 
@@ -17,23 +17,29 @@ const registerUser = asyncHandler(async (req, res) => {
   if (
     [fullName, email, password, username].some((field) => field?.trim() === "")
   ) {
-    throw new ApiError("All fields are required", 400);
+    throw new ApiError(400,"All fields are required");
   }
 
   // check  if user is already registered  (by username and email address)
 
-  const existedUser=User.findOne({
-    $or: [{ username }, { email }],
-  })
+  const existedUser = await User.findOne({
+  $or: [{ username }, { email }],
+});
+if (existedUser) {
+  throw new ApiError(409, "User already exists");
+}
 
-  if(existedUser){
-    throw new ApiError("User already exists", 409);
-  }
   // check  for image , check for avatar
   const avatarLocalPath=  req.files?.avatar[0]?.path;
-  const coverImageLocalPath=  req.files?.coverImage[0]?.path;
+  //const coverImageLocalPath=  req.files?.coverImage[0]?.path;
+
+
+  let coverImageLocalPath;
+    if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+        coverImageLocalPath = req.files.coverImage[0].path
+    }
   if(!avatarLocalPath){
-    throw new ApiError("Avatar is required", 400);
+    throw new ApiError(400,"Avatar is required");
   }
   // check them uploaded  image cloundinary
  
@@ -54,19 +60,15 @@ const registerUser = asyncHandler(async (req, res) => {
     coverImage: coverImage?.url ||"",
     
   })
-const createdUser=await User.findById(user_id).select(
-    "-password -refreshToken"
-)
 
-if (createdUser){
-    throw new ApiError("Failed to create user",500)
+
+const createdUser = await User.findById(user._id).select("-password -refreshToken");
+if (!createdUser) {
+  throw new ApiError("Failed to create user", 500);
 }
-return res.status(201).json(
-    new ApiResponse(200, createdUser,"user registered successfully")
-)
-  // remove password  and refresh token from response
-  //check for user creation
-  // return response
+return res.status(201).json(new ApiResponse(200, createdUser, "user registered successfully"));
+
+  
 });
 
 export { registerUser };
